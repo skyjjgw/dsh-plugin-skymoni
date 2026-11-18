@@ -1,0 +1,6 @@
+Copyright (c) 2026 Skymoni / Skivu copyright holders. All rights reserved.
+
+Permission is granted to download, install, and use this official Skymoni plugin
+with DeepSeek Harness. The project is published in source form for transparency.
+Copyright holders reserve all other rights in their original materials.
+Third-party components retain their own licenses as described in THIRD_PARTY.md.

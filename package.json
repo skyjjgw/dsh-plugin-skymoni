@@ -1,0 +1,18 @@
+{
+  "name": "dsh-plugin-skymoni",
+  "version": "0.1.1",
+  "description": "在 DeepSeek Harness 桌面端用 Skymoni 签到账户登录并使用模型。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./cordis.patch.yml": "./cordis.patch.yml", "./package.json": "./package.json" },
+  "files": ["lib", "cordis.patch.yml", "README.md", "LICENSE.txt", "THIRD_PARTY.md"],
+  "engines": { "node": ">=24.9.0", "dsh": "0.2.1-rc.2" },
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "repository": { "type": "git", "url": "https://github.com/skyjjgw/dsh-plugin-skymoni.git" },
+  "homepage": "https://github.com/skyjjgw/dsh-plugin-skymoni#readme",
+  "keywords": ["dsh-plugin", "deepseek-harness", "skymoni", "model-provider"],
+  "peerDependencies": { "@deepseek-ai/dsh-llm": "0.2.1-rc.2", "@deepseek-ai/dsh-llm-pi-ai": "0.2.1-rc.2", "@deepseek-ai/dsh-credentials": "0.2.1-rc.2", "@deepseek-ai/schemastery": "~3.18.5" },
+  "dependencies": { "@earendil-works/pi-ai": "1.1.0" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-connection", "@deepseek-ai/dsh-client-ui-layout", "@deepseek-ai/dsh-client-ui-sidebar"] } },
+  "scripts": { "check": "node scripts/check.mjs", "test": "node --test test/*.test.mjs" }
+}
