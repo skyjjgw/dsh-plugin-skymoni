@@ -76,3 +76,31 @@ test('cancel during queued secure write cannot leave a saved session behind', as
   const cancelling = account.cancel(); release(); await cancelling; await flush();
   assert.equal(disk.value(), null); assert.equal(account.snapshot().signedIn, false);
 });
+test('dashboard displays account totals and a single check-in updates both wallet and status', async t => {
+  const { account, clock, calls } = fixture(t);
+  await account.begin(); await clock.advance(1000);
+  const before = await account.dashboard();
+  assert.equal(before.balanceLabel, '1.2500 积分');
+  assert.equal(before.usedLabel, '0.5000 积分');
+  assert.equal(before.checkin.checkedIn, false);
+  const [first, second] = await Promise.all([account.checkin(), account.checkin()]);
+  assert.equal(first.checkin.checkedIn, true);
+  assert.equal(second.checkin.awardLabel, '0.1000 积分');
+  assert.equal(first.balanceLabel, '1.3500 积分');
+  assert.equal((await account.checkin()).balanceLabel, '1.3500 积分');
+  assert.equal(calls.filter(({ method, path }) => method === 'POST' && path.endsWith('/checkin')).length, 1);
+  assert.ok(!JSON.stringify(first).includes(TOKEN));
+});
+test('check-in uses site verification when required and reconciles a lost submission response', async t => {
+  const { account, clock, state, calls } = fixture(t);
+  await account.begin(); await clock.advance(1000);
+  state.verification = true;
+  assert.equal((await account.checkin()).checkin.requiresVerification, true);
+  assert.ok(!calls.some(({ method, path }) => method === 'POST' && path.endsWith('/checkin')));
+  state.verification = false;
+  state.checkinNetworkError = true;
+  assert.equal((await account.checkin()).checkin.checkedIn, true);
+  assert.equal(account.snapshot().balanceLabel, '1.3500 积分');
+  state.checkinEnabled = false;
+  assert.deepEqual((await account.dashboard()).checkin, { enabled: false });
+});

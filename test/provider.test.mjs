@@ -5,16 +5,20 @@ import { LlmRuntime, LlmAdapter } from '@deepseek-ai/dsh-llm';
 import { Account } from '../lib/account.js';
 import { createProvider } from '../lib/provider.js';
 import { PROVIDER } from '../lib/protocol.js';
+import { createUsageHistory } from '../lib/usage.js';
 import { backend, store, KEY, sse, collect } from './helpers.mjs';
 const user = { role: 'user', content: [{ type: 'text', text: '本地合成验收' }] };
 async function fixture(t) {
   const api = backend(), account = new Account({ store: store(), fetch: api.fetch, scheduler: api.clock, now: api.clock.now });
   const ctx = new Context(); const fiber = ctx.plugin(LlmRuntime); await fiber;
   const foreign = ctx.llm.registerAdapter(['existing-user-provider'], new class extends LlmAdapter { async *stream() {} }());
-  const plugin = createProvider(ctx, account, { contextWindow: 65536, maxTokens: 8192, visionModels: [] });
+  const records = new Map();
+  const usageStore = { read: async name => records.get(name), update: async (name, update) => records.set(name, update(records.get(name))) };
+  const history = createUsageHistory(usageStore);
+  const plugin = createProvider(ctx, account, { contextWindow: 65536, maxTokens: 8192, visionModels: [] }, history);
   t.after(async () => { plugin.dispose(); foreign(); await account.dispose(); await fiber.dispose(); });
   await account.begin(); await api.clock.advance(1000);
-  return { ...api, account, ctx, plugin };
+  return { ...api, account, ctx, plugin, history, usageStore };
 }
 test('real Cordis/LLM registry exposes account models while preserving another provider', async t => {
   const { ctx, account } = await fixture(t);
@@ -55,7 +59,7 @@ test('revoked website session prevents model network I/O on the next native infe
   assert.equal(requests, 0); assert.ok(chunks.some(chunk => chunk.type === 'finish' && ['error', 'aborted'].includes(chunk.reason.kind)));
 });
 test('native Responses adapter uses /v1/responses and returns the streamed text', async t => {
-  const { ctx } = await fixture(t); const original = globalThis.fetch;
+  const { ctx, history, usageStore } = await fixture(t); const original = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
     assert.equal(String(url), 'https://skymoni.com/v1/responses');
     assert.equal(new Headers(options.headers).get('authorization'), `Bearer ${KEY}`);
@@ -74,6 +78,12 @@ test('native Responses adapter uses /v1/responses and returns the streamed text'
   const chunks = await collect(ctx.llm.stream({ provider: PROVIDER, model: 'fixture-responses', messages: [user] }));
   assert.ok(chunks.some(chunk => chunk.type === 'text-delta' && chunk.text.includes('验收成功')), JSON.stringify(chunks));
   assert.ok(chunks.some(chunk => chunk.type === 'finish' && chunk.reason.kind === 'stop'), JSON.stringify(chunks));
+  const { rows } = await history.list('7');
+  assert.equal(rows.length, 1);
+  assert.deepEqual({ ...rows[0], time: 0 }, { time: 0, model: 'fixture-responses', tokens: 9, status: 'done' });
+  assert.deepEqual((await createUsageHistory(usageStore).list('7')).rows, rows);
+  assert.deepEqual((await history.list('8')).rows, []);
+  assert.ok(!JSON.stringify(rows).includes(user.content[0].text));
 });
 test('logging out aborts a native model stream already in progress', async t => {
   const { ctx, account } = await fixture(t); const original = globalThis.fetch;

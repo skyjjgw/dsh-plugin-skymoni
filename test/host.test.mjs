@@ -5,6 +5,10 @@ import { CredentialProvider } from '@deepseek-ai/dsh-credentials';
 import * as Connection from '@deepseek-ai/dsh-client-connection';
 import { LlmRuntime } from '@deepseek-ai/dsh-llm';
 import * as Plugin from '../lib/index.js';
+import { mkdtemp, readFile, unlink, rmdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { exportUsage, usageRange } from '../lib/usage.js';
 
 class MemoryCredentials extends CredentialProvider {
   records = new Map([['unrelated-provider/session', { kind: 'grant', payload: { fixture: 'untouched' } }]]);
@@ -31,6 +35,34 @@ test('official carrier admits exact account routes only for owner peers; plugin 
   assert.equal((await existing.json()).result.value, 'preserved');
   const malformed = await handler.fetch(new Request(`http://localhost/api/${route}`, { method: 'POST', body: JSON.stringify({ type: 'client-request', rpcId: 'bad', method: 'skymoni-account/login', payload: {} }) }), ctx.connection.browserPeer);
   assert.equal(malformed.status, 400);
+  const exportRequest = payload => new Request('http://localhost/api/skymoni-account/exportUsage', { method: 'POST',
+    body: JSON.stringify({ type: 'client-request', rpcId: 'export_1', method: 'skymoni-account/exportUsage', payload }),
+  });
+  const dates = { start: '2026-11-16', end: '2026-11-17' };
+  assert.equal((await handler.fetch(exportRequest({ ...dates, path: 'invalid.csv' }), ctx.connection.browserPeer)).status, 400);
+  assert.equal((await handler.fetch(exportRequest(dates), { principal: { kind: 'fixture-remote' } })).status, 403);
+  assert.equal((await (await handler.fetch(exportRequest(dates), ctx.connection.browserPeer)).json()).result.error.code, 'SIGNED_OUT');
   assert.deepEqual(await ctx.credentials.readRecord('unrelated-provider/session'), { kind: 'grant', payload: { fixture: 'untouched' } });
   await plugin.dispose(); assert.equal((await handler.fetch(request(), ctx.connection.browserPeer)).status, 404);
+});
+
+test('CSV export filters local dates, neutralizes model formulas and preserves existing files', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'skymoni-export-'));
+  const files = [];
+  t.after(async () => { await Promise.all(files.map(path => unlink(path))); await rmdir(directory); });
+  assert.equal(usageRange({ start: '2026-02-30', end: '2026-03-08' }), null);
+  const dates = usageRange({ start: '2026-11-16', end: '2026-11-17' });
+  const rows = [
+    { time: dates.fromMs, model: '=SUM(4,7)', tokens: 13, status: 'done' },
+    { time: dates.untilMs, model: 'outside', tokens: null, status: 'aborted' },
+  ];
+  for (let index = 0; index < 2; index++) {
+    const { path, count } = await exportUsage(rows, dates, directory);
+    files.push(path);
+    assert.equal(count, 1);
+    const file = await readFile(path, 'utf8');
+    assert.match(file, /"'=SUM\(4,7\)","13","完成"/);
+    assert.ok(!file.includes('outside'));
+  }
+  assert.notEqual(files[0], files[1]);
 });

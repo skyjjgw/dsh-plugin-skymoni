@@ -24,6 +24,7 @@ export function store(initial = null) {
 export function backend(clock = new Clock()) {
   const calls = []; let challenge;
   const state = { pending: false, revoked: false, meName: '插件验收账户', failure: null,
+    balance: 625000, checkedIn: false, verification: false, checkinEnabled: true, checkinNetworkError: false,
     catalog: ['fixture-chat', 'fixture-responses', 'fixture-other-group'],
     relayCatalog: ['fixture-chat', 'fixture-responses', 'fixture-nonchat'] };
   const json = data => Response.json({ success: true, data });
@@ -48,7 +49,25 @@ export function backend(clock = new Clock()) {
     }
     if (options.headers.Authorization !== `AppAccount ${TOKEN}`) throw Error('Missing fixture auth');
     if (state.revoked) return Response.json({ success: false, code: 'APP_SESSION_INVALID' }, { status: 401 });
-    if (path.endsWith('/me')) return json({ user: { id: 7, display_name: state.meName, group: 'default' }, wallet: { balance: 625000, used: 250000, request_count: 2 }, quota_per_unit: 500000, currency: 'USD', session: { id: 'fixture-sid', device_name: '小云 DSH 插件' }, subscriptions: [] });
+    if (path.endsWith('/me')) return json({ user: { id: 7, display_name: state.meName, group: 'default' }, wallet: { balance: state.balance, used: 250000, request_count: 2 }, quota_per_unit: 500000, currency: 'USD', session: { id: 'fixture-sid', device_name: '小云 DSH 插件' }, subscriptions: [] });
+    if (path.endsWith('/checkin')) {
+      const date = new Date(clock.now()).toISOString().slice(0, 10);
+      const response = (code, status = 200) => Response.json({ success: false, code }, { status });
+      if (!state.checkinEnabled) return response('CHECKIN_DISABLED');
+      if (options.method === 'POST') {
+        if (state.verification) throw Error('Should use the website when verification is enabled');
+        if (state.checkedIn) return response('CHECKIN_ALREADY_DONE');
+        state.checkedIn = true;
+        state.balance += 50000;
+        if (state.checkinNetworkError) throw Error('Simulated network loss after committing');
+        return json({ checkin_date: date, quota_awarded: 50000 });
+      }
+      const count = Number(state.checkedIn);
+      return json({ enabled: true, server_date: date, requires_verification: state.verification, stats: {
+        checked_in_today: state.checkedIn, checkin_count: count, total_checkins: count,
+        records: state.checkedIn ? [{ checkin_date: date, quota_awarded: 50000 }] : [],
+      } });
+    }
     if (path.endsWith('/models')) return json({ models: state.catalog, model_protocols: Object.fromEntries(state.catalog.map(id => [id, id.endsWith('responses') ? 'responses' : 'chat'])) });
     if (path.endsWith('/provider')) return json({ provider_id: 'skymoni', base_url: 'https://skymoni.com/v1', api: 'openai-completions', api_key: KEY });
     if (path.endsWith('/session')) return json(null);

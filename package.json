@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-skymoni",
-  "version": "0.1.1",
-  "description": "在 DeepSeek Harness 桌面端用 Skymoni 签到账户登录并使用模型。",
+  "version": "0.2.0",
+  "description": "在 DeepSeek Harness 桌面端登录 Skymoni，查看积分、签到和用量，并使用 Skymoni 模型。",
   "type": "module",
   "main": "lib/index.js",
   "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./cordis.patch.yml": "./cordis.patch.yml", "./package.json": "./package.json" },
