@@ -4,7 +4,7 @@
 
 ## 安装
 
-支持 DeepSeek Harness 桌面版 **0.2.1-rc.2**。用本地包安装时，打开 **插件 → 添加插件**，输入 `.tgz` 文件的完整路径。通过 npm 安装时输入插件名称。
+支持 DeepSeek Harness 桌面版 **0.2.1-rc.2** 和 **0.2.2-rc.5**。用本地包安装时，打开 **插件 → 添加插件**，输入 `.tgz` 文件的完整路径。通过 npm 安装时输入插件名称。
 
 ```text
 dsh-plugin-skymoni
@@ -33,4 +33,4 @@ dsh-plugin-skymoni
 
 ## 开发验证
 
-使用 Node.js 24.9+ 和 DSH 0.2.1-rc.2 对应依赖运行 `npm run check`、`npm test` 和 `npm pack`。测试使用合成账户及模型响应。许可证见 `LICENSE.txt` 和 `THIRD_PARTY.md`。
+使用 Node.js 24.9+，分别装入 DSH 0.2.1-rc.2 和 0.2.2-rc.5 对应依赖运行 `npm run check`、`npm test` 和 `npm pack`。测试使用合成账户及模型响应。许可证见 `LICENSE.txt` 和 `THIRD_PARTY.md`。
